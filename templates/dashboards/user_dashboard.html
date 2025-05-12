@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Дашборд Користувача{% endblock %}
+
+
+{% block content %}
+<div class="dashboard-container">
+    <h1 class="dashboard-title">Дашборд користувача</h1>
+
+    {# Застосовуємо нові класи до посилань оператора #}
+    <a href="{% url 'analysis' %}" class="dashboard-link secondary-action-btn">Аналітика</a>
+    <a href="{% url 'edit_tariffs' %}" class="dashboard-link secondary-action-btn">Керування тарифами</a>
+    <a href="{% url 'view_tasks' %}" class="dashboard-link secondary-action-btn">Перегляд завдань</a>
+    
+</div>
+{% endblock %} 

@@ -1,0 +1,18 @@
+{# templates/partials/messages.html #}
+{% if messages %}
+<div class="django-messages" style="padding: 1rem 0;"> {# Додайте стилі для .django-messages #}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}" role="alert" style="padding: 0.75rem 1.25rem; margin-bottom: 1rem; border: 1px solid transparent; border-radius: 0.25rem; color: #fff; /* Базовий колір, буде перекрито */">
+        {{ message }}
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+/* Прості стилі для повідомлень */
+.alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+.alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+.alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeeba; }
+.alert-error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+</style>
+{% endif %}

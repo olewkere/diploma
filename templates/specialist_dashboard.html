@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Дашборд спеціаліста{% endblock %}
+
+{% block content %}
+{# Форма виходу тепер поза карткою, позиціонується через CSS #}
+<form method="post" action="{% url 'logout' %}" class="logout-form-fixed">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger btn-sm">Вийти</button>
+</form>
+
+<div class="container">
+    {# Зменшуємо ширину колонки, щоб картка була вужчою #}
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6 col-xl-5"> {# Зменшено XL #}
+            <div class="card mt-5"> {# Додано відступ зверху, щоб не перекривалось кнопкою виходу #}
+                <div class="card-body">
+                    {# Заголовок всередині картки #}
+                    <h1 class="card-title mb-4 text-center">Дашборд спеціаліста</h1> {# Заголовок по центру #}
+
+                    <div class="text-center">
+                        <div class="mb-3">
+                            <a href="{% url 'manage_tasks' %}" class="btn btn-primary w-100" style="max-width: 300px;">Керування завданнями</a> {# Зменшено max-width #}
+                        </div>
+                        <div class="mb-3">
+                            <a href="{% url 'quality_control_list' %}" class="btn btn-primary w-100" style="max-width: 300px;">Контроль якості</a> {# Зменшено max-width #}
+                        </div>
+                        <div>
+                            <a href="{% url 'create_user' %}" class="btn btn-secondary w-100" style="max-width: 300px;">Створити користувача</a> {# Зменшено max-width #}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

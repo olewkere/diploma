@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Вхід - Система Сушіння{% endblock %}
+
+{% block extra_head %}
+{# Додаємо спеціальний клас до body ТІЛЬКИ для цієї сторінки #}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.body.classList.add('auth-page');
+    });
+</script>
+{# Підключаємо Font Awesome, якщо ще не підключено глобально в base.html #}
+{# Переконайтесь, що рядок з Font Awesome в base.html розкоментований! #}
+{# <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"> #}
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-box">
+        <h2>Вхід до системи</h2>
+
+        {% if form.errors %}
+            <div class="error-message mb-3">
+                Будь ласка, виправте помилки нижче.
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}
+                         <div class="small mt-1">{{ field }}: {{ error }}</div>
+                    {% endfor %}
+                {% endfor %}
+                 {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}
+                        <div class="small mt-1">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} small p-2 mb-3" role="alert">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" class="login-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}" class="form-label">Логін:</label>
+                {# Додаємо клас form-control до поля, щоб стилі з main.css застосовувались #}
+                <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}" class="form-control" value="{{ form.username.value|default_if_none:'' }}" required>
+            </div>
+            <div class="form-group password-wrapper"> {# Додано клас-обгортку #}
+                <label for="{{ form.password.id_for_label }}" class="form-label">Пароль:</label>
+                <input type="password" name="{{ form.password.html_name }}" id="{{ form.password.id_for_label }}" class="form-control" required>
+                {# Кнопка показу/приховування пароля #}
+                <button type="button" class="toggle-password" id="togglePassword">
+                    <i class="fas fa-eye"></i> {# Іконка Font Awesome #}
+                </button>
+            </div>
+            {# Додайте посилання на відновлення паролю, якщо потрібно #}
+            {# <div class="text-end small mt-2"><a href="#">Забули пароль?</a></div> #}
+            <button type="submit" class="btn btn-primary w-100">Увійти</button>
+        </form>
+
+        <div class="mt-3 text-center">
+            <a href="/admin/" target="_blank" class="small text-muted">Перейти до адмін-панелі</a>
+        </div>
+
+        {# Можливо, додати посилання на реєстрацію #}
+        {# <p class="mt-3 text-muted small">Немає акаунту? <a href="{% url 'register' %}">Зареєструватися</a></p> #}
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOM fully loaded. Initializing password toggle script...');
+
+    const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+    const togglePasswordButton = document.getElementById('togglePassword');
+    const toggleIcon = togglePasswordButton ? togglePasswordButton.querySelector('i') : null; // Безпечніше отримання іконки
+
+    // Додаткові перевірки наявності елементів
+    if (!passwordInput) {
+        console.error('Password input field (#{{ form.password.id_for_label }}) not found!');
+        return; // Зупиняємо скрипт, якщо поле не знайдено
+    }
+    if (!togglePasswordButton) {
+        console.error('Toggle password button (#togglePassword) not found!');
+        return; // Зупиняємо скрипт, якщо кнопка не знайдена
+    }
+    if (!toggleIcon) {
+        // Не зупиняємо, але попереджаємо, якщо іконка <i> не знайдена всередині кнопки
+        console.warn('Toggle icon (<i> tag) not found inside the button! Icon class will not be changed.');
+    }
+
+    console.log('Password input and toggle button found. Adding click listener...');
+
+    togglePasswordButton.addEventListener('click', function () {
+        console.log('Toggle button clicked!'); // Повідомлення при кліку
+        try {
+            // Перемикаємо тип поля
+            const currentType = passwordInput.getAttribute('type');
+            const newType = currentType === 'password' ? 'text' : 'password';
+            console.log(`Changing input type from '${currentType}' to '${newType}'`);
+            passwordInput.setAttribute('type', newType);
+
+            // Змінюємо іконку, тільки якщо вона була знайдена
+            if (toggleIcon) {
+                console.log('Attempting to toggle icon classes...');
+                if (newType === 'password') {
+                    toggleIcon.classList.remove('fa-eye-slash');
+                    toggleIcon.classList.add('fa-eye');
+                    console.log('Icon class set to: fa-eye');
+                } else {
+                    toggleIcon.classList.remove('fa-eye');
+                    toggleIcon.classList.add('fa-eye-slash');
+                    console.log('Icon class set to: fa-eye-slash');
+                }
+            } else {
+                 console.log('Icon element was not found initially, skipping icon class toggle.');
+            }
+            console.log('Password type toggle finished.');
+        } catch (error) {
+            // Логуємо будь-які помилки ПІД ЧАС виконання обробника кліку
+            console.error('Error during password toggle execution:', error);
+        }
+    });
+
+    console.log('Password toggle script initialized successfully.');
+});
+</script>
+{% endblock %}

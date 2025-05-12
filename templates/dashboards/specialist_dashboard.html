@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load static %} 
+
+{% block title %}Дашборд спеціаліста{% endblock %}
+
+{% block content %}
+{# Форму виходу видалено, вона є в base.html #}
+
+<div class="dashboard-container">
+    <h1 class="dashboard-title">Дашборд спеціаліста</h1>
+
+    {# Додаємо всі потрібні посилання для спеціаліста #}
+    <a href="{% url 'manage_tasks' %}" class="dashboard-link secondary-action-btn">Керування завданнями</a>
+    <a href="{% url 'quality_control_list' %}" class="dashboard-link secondary-action-btn">Контроль якості</a>
+    <a href="{% url 'create_user' %}" class="dashboard-link secondary-action-btn">Створити користувача</a>
+</div>
+{% endblock %} 
