@@ -12,9 +12,12 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+ALLOWED_HOSTS = ['.onrender.com', 'localhost', '127.0.0.1']
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -92,12 +95,14 @@ AUTH_USER_MODEL = 'users.CustomUser'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'drying_sys',
-        'USER': 'postgres',
-        'PASSWORD': '8246',
-        'HOST': 'localhost',
+        'NAME': 'dr_sys',
+        'USER': 'oleh',
+        'PASSWORD': 'npg_xgJaVAj7r3nS',
+        'HOST': 'ep-morning-cake-a2u8apxd.eu-central-1.aws.neon.tech',
         'PORT': '5432',
-        'OPTIONS': {'client_encoding': 'UTF8'},
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
