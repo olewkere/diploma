@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Створити нового користувача{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center"> {# Центруємо картку по горизонталі #}
+        <div class="col-md-8 col-lg-6"> {# Обмежуємо ширину картки #}
+            <div class="card card-light"> {# Світла картка для форми #}
+                 <div class="card-header">Створення нового користувача</div>
+                 <div class="card-body">
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {# Відображення помилок форми, не пов'язаних з конкретними полями #}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger p-2 mb-3" role="alert"> {# Стилізований alert #}
+                                {% for error in form.non_field_errors %}
+                                    <p class="mb-0 small">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {# Проходимо по видимих полях форми #}
+                        {% for field in form.visible_fields %}
+                            <div class="form-group mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label>
+                                {# Додаємо клас form-control до поля #}
+                                <input type="{{ field.field.widget.input_type }}"
+                                       name="{{ field.html_name }}"
+                                       {% if field.value %}value="{{ field.value }}"{% endif %}
+                                       class="form-control {% if field.errors %}is-invalid{% endif %}" {# Додаємо is-invalid при помилці #}
+                                       id="{{ field.id_for_label }}"
+                                       {% if field.field.required %}required{% endif %}>
+
+                                {# Підказка до поля (якщо є) #}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text|safe }}</small>
+                                {% endif %}
+
+                                {# Помилки для конкретного поля #}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback"> {# Клас для відображення помилок Bootstrap #}
+                                        {{ error }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        {# Обробка прихованих полів (наприклад, role, якщо є) - вони не відображатимуться #}
+                        {% for field in form.hidden_fields %}
+                            {{ field }}
+                        {% endfor %}
+
+                        {# Кнопки дій з новим позиціонуванням #}
+                        <div class="d-flex justify-content-between mt-4"> {# Змінено клас для рознесення кнопок #}
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-danger btn-sm">Скасувати</a> {# Змінено стиль кнопки Скасувати #}
+                            <button type="submit" class="btn btn-primary btn-sm">Створити користувача</button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

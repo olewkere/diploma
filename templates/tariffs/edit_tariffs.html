@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load static %}
+{# {% load widget_tweaks %} - Закоментовано, якщо не використовується #}
+
+{% block title %}Керування тарифами{% endblock %}
+
+{% block extra_css %}
+{# Вбудовані стилі видалено, використовуються глобальні з main.css #}
+{% endblock %}
+
+
+{% block content %}
+<div class="container">
+    {# Створюємо загальну темну рамку #}
+    <div class="content-box-dark">
+        {# Переносимо заголовок всередину рамки #}
+        <h1 class="mb-4 text-center">Керування тарифами</h1>
+
+        {# Переносимо форму всередину рамки #}
+        <form method="post" style="width: 100%;"> {# Додаємо width: 100% до форми #}
+            {% csrf_token %}
+
+            {# Додаємо mb-4 для відступу знизу #}
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                {# Кнопка Назад #}
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-sm"> &larr; Назад до дашборду</a>
+                {# Кнопка збереження, якщо є форми #}
+                {% if forms %}
+                    <button type="submit" class="btn btn-primary btn-lg">Зберегти зміни</button>
+                {% else %}
+                    {# Пустий div для збереження вирівнювання, якщо форм немає #}
+                    <div></div>
+                {% endif %}
+            </div>
+
+            {# Додаємо клас content-box-dark для стилізації рамки #}
+            {# Прибираємо mb-4, бо відступ вже є в content-box-dark #}
+            <div class="horizontal-scroll-container">
+                <div class="row flex-nowrap">
+                    {% for form in forms %}
+                        {# Використовуємо стандартні відступи Bootstrap замість mb-3 #}
+                        <div class="col-md-5 col-lg-4 col-xl-3">
+                            {# h-100 - щоб картки мали однакову висоту, якщо знаходяться в одному ряду #}
+                            <div class="card h-100 tariff-card"> 
+                                <div class="card-header">
+                                    {{ form.instance.get_energy_type_display }}
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group mb-3"> {# Додано mb-3 для відступу між полями #}
+                                        <label for="{{ form.day_rate.id_for_label }}" class="form-label">{{ form.day_rate.label }}:</label>
+                                        <input type="{{ form.day_rate.field.widget.input_type }}"
+                                               name="{{ form.day_rate.html_name }}"
+                                               value="{{ form.day_rate.value|default_if_none:'' }}"
+                                               step="any"
+                                               class="form-control" {# Використовуємо глобальний клас #}
+                                               id="{{ form.day_rate.id_for_label }}">
+                                        {% if form.day_rate.errors %}<div class="text-danger small mt-1">{{ form.day_rate.errors|striptags }}</div>{% endif %}
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="{{ form.night_rate.id_for_label }}" class="form-label">{{ form.night_rate.label }}:</label>
+                                        <input type="{{ form.night_rate.field.widget.input_type }}"
+                                               name="{{ form.night_rate.html_name }}"
+                                               value="{{ form.night_rate.value|default_if_none:'' }}"
+                                               step="any"
+                                               class="form-control" {# Використовуємо глобальний клас #}
+                                               id="{{ form.night_rate.id_for_label }}">
+                                        {% if form.night_rate.errors %}<div class="text-danger small mt-1">{{ form.night_rate.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-info text-center" role="alert">
+                                Немає тарифів для редагування.
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+    </div> {# Кінець content-box-dark #}
+</div>
+{% endblock %}
