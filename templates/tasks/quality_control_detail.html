@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Контроль якості: {{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    {# Повторно видаляємо цей блок #}
+
+    <h1 class="mb-4">Контроль якості: {{ task.title }}</h1>
+
+    {# Основна інформація про завдання - можна в картку #}
+    <div class="card card-light mb-4">
+        <div class="card-body p-3"> {# Менший padding #}
+            <p class="mb-1"><strong>Марка:</strong> {{ task.get_brand_display }}</p>
+            <p class="mb-1"><strong>Лінія:</strong> {{ task.get_line_display }}</p>
+            <p class="mb-0"><strong>Статус:</strong> {{ task.get_status_display }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        {# Картка з нормами #}
+        <div class="col-md-6 mb-4">
+            <div class="card card-light h-100">
+                <div class="card-header">Норми якості (для {{ task.get_brand_display }})</div>
+                <div class="card-body">
+                    {% if quality_norms %}
+                    {# Використаємо data-table для консистентності #}
+                    <div class="table-container">
+                        <table class="data-table table-sm"> {# Додано data-table #}
+                            <tbody>
+                                <tr>
+                                    <th scope="row">Вологість</th>
+                                    <td>{{ quality_norms.min_moisture|floatformat:2 }}% - {{ quality_norms.max_moisture|floatformat:2 }}%</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Зольність</th>
+                                    <td>не більше {{ quality_norms.max_ash|floatformat:2 }}%</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Твердість</th>
+                                    <td>{{ quality_norms.min_hardness|floatformat:0 }}г - {{ quality_norms.max_hardness|floatformat:0 }}г</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning p-2" role="alert">
+                        Норми якості для марки {{ task.get_brand_display }} не визначені.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# Картка з вимірюваннями #}
+        <div class="col-md-6 mb-4">
+            <div class="card card-light h-100">
+                <div class="card-header">Фактичні вимірювання</div>
+                <div class="card-body">
+                    {% if measurements %}
+                    <div class="table-container">
+                        <table class="data-table table-sm">
+                            <thead> {# Прибрали thead-light #}
+                                <tr>
+                                    <th>Час</th>
+                                    <th>Волог.</th> {# Скорочено #}
+                                    <th>Зольн.</th> {# Скорочено #}
+                                    <th>Тверд.</th> {# Скорочено #}
+                                    <th>Лаборант</th> {# Скорочено #}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in measurements %}
+                                <tr>
+                                    <td>{{ m.measurement_time|date:"y-m-d H:i" }}</td> {# Скорочено формат #}
+                                    <td>{{ m.measured_moisture|default:"-"|floatformat:2 }}</td>
+                                    <td>{{ m.measured_ash|default:"-"|floatformat:2 }}</td>
+                                    <td>{{ m.measured_hardness|default:"-"|floatformat:0 }}</td>
+                                    <td>{{ m.measured_by.name|default:"-" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info p-2" role="alert">
+                        Для цього завдання ще не було проведено лабораторних вимірювань.
+                    </div>
+                    {% endif %}
+                    {# Тут можна додати форму або кнопку для додавання нового вимірювання #}
+                    {# <a href="#" class="btn btn-primary btn-sm mt-3">Додати вимірювання</a> #}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'quality_control_list' %}" class="btn btn-secondary btn-sm mt-3"> &larr; Назад до списку</a> {# Зменшено розмір #}
+
+</div>
+{% endblock %} 

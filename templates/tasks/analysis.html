@@ -1,0 +1,897 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Аналіз Ефективності{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Стилі для контейнера графіка та міток */
+    .chart-outer-container {
+        position: relative; /* Для позиціонування анотацій, якщо знадобиться */
+        margin-bottom: 1.5rem;
+    }
+    .chart-labels-container {
+        display: flex;
+        justify-content: space-around; /* Розподілити мітки */
+        align-items: center;
+        width: 100%;
+        padding: 0 2%; /* Невеликі відступи з боків */
+        box-sizing: border-box;
+    }
+    .chart-labels-container.top-labels {
+        position: relative;
+        height: 20px;
+        margin-bottom: 5px;
+        font-size: 0.85rem;
+        color: #555;
+        padding-left: 5px;
+    }
+    .chart-labels-container.top-labels span {
+        position: absolute;
+        transform: translateX(-50%);
+        white-space: nowrap;
+    }
+    .chart-labels-container.bottom-labels {
+        margin-top: 5px; /* Відступ над нижніми мітками */
+        font-size: 0.95rem;
+        font-weight: bold;
+    }
+    .chart-labels-container span {
+        text-align: center;
+        flex: 1; /* Зайняти рівну ширину */
+        /* Можна додати min-width, якщо мітки накладаються */
+    }
+    .time-label-title {
+        text-align: left !important;
+        padding-right: 5px;
+        font-weight: bold;
+        display: inline-block;
+        margin-right: 15px;
+        position: relative;
+    }
+    /* Стилі для самого графіка */
+    .chart-canvas-container {
+        height: 450px; /* Стандартна висота, наприклад, для першого графіка */
+        width: 100%;
+    }
+
+    /* Специфічна висота для контейнера другого (агрегованого) графіка */
+    #slideAggregatedChart .chart-canvas-container {
+        height: 504px; /* Бажана більша висота для агрегованого графіка */
+    }
+
+    /* --- Стилі для слайдера графіків --- */
+    .charts-slider-container {
+        position: relative;
+        margin-bottom: 2rem; /* Відступ під слайдером */
+    }
+
+    .chart-slide {
+        display: none; /* За замовчуванням всі слайди приховані */
+        /* Можна додати анімацію появи/зникнення пізніше */
+    }
+
+    .chart-slide.active {
+        display: block; /* Активний слайд видимий */
+    }
+
+    .slider-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 1rem; /* Відступ над кнопками */
+        margin-bottom: 0.5rem;
+    }
+
+    .slider-arrow {
+        background-color: var(--accent-primary);
+        color: white;
+        border: none;
+        padding: 0.5rem 0.8rem;
+        font-size: 1.2rem;
+        border-radius: 50%;
+        cursor: pointer;
+        margin: 0 15px;
+        transition: background-color 0.2s ease;
+        line-height: 1;
+    }
+
+    .slider-arrow:hover {
+        background-color: var(--accent-secondary);
+    }
+    .slider-arrow:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+
+    .slider-indicators {
+        display: flex;
+        justify-content: center;
+        margin-top: 0.5rem;
+    }
+
+    .indicator-dot {
+        height: 12px;
+        width: 12px;
+        margin: 0 5px;
+        background-color: #bbb;
+        border-radius: 50%;
+        display: inline-block;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .indicator-dot.active {
+        background-color: var(--accent-primary);
+    }
+
+    .chart-content-area {
+        min-height: 50px; /* Мінімальна висота для області графіка/повідомлення (підберіть значення) */
+        /* Можна додати display: flex; align-items: center; justify-content: center; 
+           щоб центрувати повідомлення, якщо воно єдине в блоці */
+        display: flex;
+        flex-direction: column; /* Якщо вміст має бути один під одним */
+        justify-content: center; /* Центрує вміст по вертикалі, якщо він менший за min-height */
+    }
+
+    .dashboard-link-container {
+        margin-bottom: 1.5rem; /* Відступ під кнопкою назад */
+    }
+</style>
+{% endblock %}
+
+{% block extra_head %}
+    {{ block.super }}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="text-center mb-4">Аналітичні дані</h1>
+
+    <div class="row">
+        {# --- ЛІВА КОЛОНКА (ФІЛЬТРИ ТА СПИСОК ЗАВДАНЬ) --- #}
+        <div class="col-md-4" {% if selected_task_object %}style="padding-top: 2.8rem;"{% else %}style="padding-top: 0.5rem;"{% endif %}>
+            {# --- Кнопка Назад до Дашборду --- #}
+            <div class="dashboard-link-container">
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-sm w-100"> 
+                    &larr; Назад до Дашборду
+                </a>
+            </div>
+
+            {# --- Форма Фільтрів --- #}
+            <form method="get" class="filter-form mb-4 p-3 border rounded">
+                <h5 class="mb-3">Фільтри</h5>
+                <div class="mb-3">
+                    <label for="start_date_input" class="form-label">Дата початку:</label>
+                    <input type="date" id="start_date_input" name="start_date" class="form-control form-control-sm" required value="{{ start_date }}">
+                </div>
+                <div class="mb-3">
+                    <label for="end_date_input" class="form-label">Дата кінця:</label>
+                    <input type="date" id="end_date_input" name="end_date" class="form-control form-control-sm" required value="{{ end_date }}">
+                </div>
+                <div class="mb-3">
+                    <label for="shift_select" class="form-label">Зміна:</label>
+                    <select id="shift_select" name="shift" class="form-select form-select-sm">
+                        <option value="all" {% if selected_shift == 'all' %}selected{% endif %}>Усі зміни</option>
+                        <option value="1" {% if selected_shift == '1' %}selected{% endif %}>Зміна 1 (08:00-16:00)</option>
+                        <option value="2" {% if selected_shift == '2' %}selected{% endif %}>Зміна 2 (16:00-00:00)</option>
+                        <option value="3" {% if selected_shift == '3' %}selected{% endif %}>Зміна 3 (00:00-08:00)</option>
+                    </select>
+                </div>
+                {# Прибираємо task_id з форми, бо він буде в URL списку завдань #}
+                <button type="submit" class="btn btn-primary btn-sm w-100">Застосувати фільтри</button>
+            </form>
+
+            {# --- Список завдань --- #}
+            <div class="card card-light mb-4">
+                <div class="card-header">Завдання за період</div>
+                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                    {% if tasks_for_sidebar %}
+                        {% for task in tasks_for_sidebar %}
+                            <a href="?start_date={{ start_date }}&end_date={{ end_date }}&shift={{ selected_shift }}&task_id={{ task.id }}"
+                               class="list-group-item list-group-item-action {% if task.id|stringformat:"s" == selected_task_id %}active{% endif %}">
+                                <small>ID: {{ task.id }}</small> - {{ task.title }}
+                                <br><small class="text-muted">{{ task.created_at|date:"d.m.Y H:i" }}</small>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="list-group-item text-muted">Завдань за вибраними фільтрами не знайдено.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# --- ПРАВА КОЛОНКА (ГРАФІК ТА ІНШИЙ КОНТЕНТ) --- #}
+        <div class="col-md-8">
+
+            {# --- КОНТЕЙНЕР ДЛЯ СЛАЙДЕРА ГРАФІКІВ --- #}
+            <div class="charts-slider-container">
+
+                {# --- СЛАЙД 1: Деталізований графік та показники обраного завдання --- #}
+                <div class="chart-slide" id="slideDetailedChart">
+                    {% if selected_task_object %}
+                        <h4 class="mb-3">Деталі завдання: {{ selected_task_object.title }} (ID: {{ selected_task_object.id }})</h4>
+                        
+                        <div class="chart-content-area">
+                            {% if task_specific_chart_data_json %}
+                                <div class="chart-outer-container card card-light">
+                                    <div class="card-header">Графік температури та вологості по зонах</div>
+                                    <div class="card-body">
+                                        {# --- Верхні мітки (Час) --- #}
+                                        {% if time_points_for_html_loop %}
+                                        <div class="chart-labels-container top-labels" id="timeLabelsContainer">
+                                            {% for tp in time_points_for_html_loop %}
+                                                <span id="{{ tp.id }}" data-xcoord="{{ tp.x_coord }}">{{ tp.time_str }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        {# --- Контейнер для Canvas --- #}
+                                        <div class="chart-canvas-container">
+                                            <canvas id="taskDetailChart"></canvas>
+                                        </div>
+
+                                        {# --- Нижні мітки (Зони) --- #}
+                                        {% if main_zone_names_html %}
+                                        <div class="chart-labels-container bottom-labels">
+                                            {% for zone_name in main_zone_names_html %}
+                                                <span>{{ zone_name }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div> {# кінець card-body #}
+                                </div> {# кінець chart-outer-container #}
+
+                                {# --- Елементи керування слайдером для СЛАЙДУ 1 --- #}
+                                <div class="slider-controls mt-2 mb-3">
+                                    <button class="slider-arrow" id="prevChart_s1" aria-label="Попередній графік">&larr;</button>
+                                    <div class="slider-indicators" id="chartIndicators_s1"></div>
+                                    <button class="slider-arrow" id="nextChart_s1" aria-label="Наступний графік">&rarr;</button>
+                                </div>
+                                {# --- КІНЕЦЬ Елементи керування слайдером для СЛАЙДУ 1 --- #}
+
+                                {# --- ТАБЛИЦЯ ДЛЯ ДЕТАЛІЗОВАНИХ ДАНИХ --- #}
+                                {% if detailed_task_table_data %}
+                                <div class="card card-light mt-3 mb-4">
+                                    <div class="card-header">
+                                        Деталізовані Параметри Процесу (Таблиця)
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;"> {# Додано max-height та overflow #}
+                                            <table class="table table-striped table-hover table-sm data-table mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Параметр</th>
+                                                        <th class="text-center">Зона входу</th>
+                                                        <th class="text-center">Зона 1</th>
+                                                        <th class="text-center">Зона 2</th>
+                                                        <th class="text-center">Зона 3</th>
+                                                        <th class="text-center">Зона виходу</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for item in detailed_task_table_data %}
+                                                    <tr>
+                                                        <td>{{ item.parameter_name }}</td>
+                                                        <td class="text-center">{{ item.col_zona_vkhodu }}</td>
+                                                        <td class="text-center">{{ item.col_zona_1 }}</td>
+                                                        <td class="text-center">{{ item.col_zona_2 }}</td>
+                                                        <td class="text-center">{{ item.col_zona_3 }}</td>
+                                                        <td class="text-center">{{ item.col_zona_vykhodu }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {# --- КІНЕЦЬ ТАБЛИЦІ ДЛЯ ДЕТАЛІЗОВАНИХ ДАНИХ --- #}
+
+                            {% else %}
+                                <div class="alert alert-info text-center" role="alert">
+                                    {% if no_data_for_selected_task %}
+                                        Для обраного завдання (ID: {{ selected_task_id }}) немає даних для відображення графіка.
+                                    {% else %}
+                                        Дані для графіка обробляються або відсутні.
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div> {# Кінець chart-content-area Слайд 1 #}
+
+                        {# Ключові показники ефективності для ОБРАНОГО завдання #}
+                        {% if task_totals_info %} {# Показуємо, тільки якщо є обране завдання та дані про витрати #}
+                        <div class="row mt-4">
+                            <div class="col-md-12">
+                                <h5 class="mb-3">Ключові показники ефективності завдання ID: {{ selected_task_object.id }}</h5>
+                            </div>
+
+                            {# --- Картка Загальних Витрат та Споживання --- #}
+                            <div class="col-lg-6 mb-4">
+                                <div class="card card-light h-100">
+                                    <div class="card-header">Витрати та Споживання Ресурсів</div>
+                                    <div class="card-body">
+                                        <p><strong>Загальна вартість:</strong> <span class="fw-bold">{{ task_totals_info.total_cost|default_if_none:"-" }} грн</span></p>
+                                        
+                                        {% if task_totals_info.costs %}
+                                            <h6>Деталізація витрат (грн):</h6>
+                                            <ul class="list-unstyled">
+                                                {% for resource_key, cost in task_totals_info.costs.items %}
+                                                    {% if cost > 0 %}
+                                                        <li>
+                                                            {{ resource_key|capfirst }}:
+                                                            <span class="fw-bold">{{ cost|floatformat:2 }}</span>
+                                                        </li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+
+                                        {% if energy_consumption_info %}
+                                            <h6 class="mt-3">Споживання енергоресурсів (фіз. од.):</h6>
+                                            <ul class="list-unstyled">
+                                                {% for resource_key, consumption in energy_consumption_info.items %}
+                                                    {% if consumption > 0 %}
+                                                        <li>
+                                                            {{ resource_key|capfirst }}:
+                                                            <span class="fw-bold">{{ consumption|floatformat:2 }}</span> 
+                                                            {% for tariff in tariffs %}
+                                                                {% if tariff.energy_type == resource_key %}
+                                                                    ({{ tariff.unit|default:"од." }})
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                        {% if task_totals_info.total_carbon is not None %}
+                                             <p class="mt-3"><strong>Вхідний продукт (сировина):</strong> {{ task_totals_info.total_carbon|floatformat:2|default_if_none:"-" }} кг</p>
+                                        {% endif %}
+                                        {% if task_totals_info.total_solution is not None %}
+                                            <p><strong>Розчин CaCl2 (сировина):</strong> {{ task_totals_info.total_solution|floatformat:2|default_if_none:"-" }} кг</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                            {# --- Картка Якості та Вартісної Оцінки --- #}
+                            <div class="col-lg-6 mb-4">
+                                <div class="card card-light h-100">
+                                    <div class="card-header">Оцінка Якості та Вартість Продукції</div>
+                                    <div class="card-body">
+                                        {% if quality_assessment_info %}
+                                            <p><strong>Загальний коефіцієнт якості:</strong> <span class="fw-bold">{{ quality_assessment_info.total|floatformat:3|default_if_none:"-" }}</span></p>
+                                            <h6 class="mt-3">Деталізація коефіцієнтів якості:</h6>
+                                            <ul class="list-unstyled">
+                                                <li>Вологість: <span class="fw-bold">{{ quality_assessment_info.moisture|floatformat:3|default_if_none:"-" }}</span></li>
+                                                <li>Зольність: <span class="fw-bold">{{ quality_assessment_info.ash|floatformat:3|default_if_none:"-" }}</span></li>
+                                                <li>Твердість: <span class="fw-bold">{{ quality_assessment_info.hardness|floatformat:3|default_if_none:"-" }}</span></li>
+                                            </ul>
+                                            {% if quality_assessment_info.messages %}
+                                                <small class="text-muted">
+                                                    {% for msg in quality_assessment_info.messages %}
+                                                        {{msg}}<br>
+                                                    {% endfor %}
+                                                </small>
+                                            {% endif %}
+                                        {% else %}
+                                            <p>Дані для оцінки якості відсутні або завдання не передбачає їх розрахунок.</p>
+                                        {% endif %}
+
+                                        <h6 class="mt-4">Вартісна Оцінка Продукції</h6>
+                                        {% if value_assessment_info is not None %}
+                                            <p><strong>Розрахункова вартість продукції:</strong> <span class="fw-bold">{{ value_assessment_info|floatformat:2 }} грн</span></p>
+                                            {% if task_totals_info.total_cost is not None %}
+                                                {% load mathfilters %}
+                                                <p><strong>Орієнтовний прибуток/збиток:</strong> <span class="fw-bold">{{ value_assessment_info|sub:task_totals_info.total_cost|floatformat:2 }} грн</span></p>
+                                            {% endif %}
+                                        {% else %}
+                                            <p>Дані для вартісної оцінки відсутні.</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        {# Повідомлення, якщо не обрано завдання - це займає весь слайд #}
+                        <div class="chart-content-area"> {# Теж обгортаємо для консистентності #}
+                            <div class="alert alert-info text-center" role="alert">
+                                Будь ласка, оберіть завдання зі списку зліва для перегляду деталей.
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>{# Кінець СЛАЙД 1 #}
+
+                {# --- СЛАЙД 2: Агрегований графік --- #}
+                <div class="chart-slide" id="slideAggregatedChart">
+                    {# Заголовок, який ви додали вручну - переконайтеся, що selected_task_object тут доречний #}
+                    {% if aggregated_tasks_chart_data_json or tasks_for_sidebar %}
+                        {# <h4 class="mb-3">Деталі завдання: {{ selected_task_object.title }} (ID: {{ selected_task_object.id }})</h4> #}
+                        {# Краще універсальний заголовок або прибрати, якщо не завжди є selected_task_object #}
+                        <h4 class="mb-3">Агрегований Аналіз</h4>
+                    {% endif %}
+
+                    {# --- Обгортка для графіка або повідомлення Слайд 2 --- #}
+                    <div class="chart-content-area">
+                        {% if aggregated_tasks_chart_data_json %}
+                            <div class="card card-light mt-0">
+                                <div class="card-header">Агреговані Показники по Завданнях за Період</div>
+                                <div class="card-body">
+                                    <div class="chart-canvas-container">
+                                        <canvas id="aggregatedTasksChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# --- Елементи керування слайдером для СЛАЙДУ 2 --- #}
+                            <div class="slider-controls mt-2 mb-3">
+                                <button class="slider-arrow" id="prevChart_s2" aria-label="Попередній графік">&larr;</button>
+                                <div class="slider-indicators" id="chartIndicators_s2"></div>
+                                <button class="slider-arrow" id="nextChart_s2" aria-label="Наступний графік">&rarr;</button>
+                            </div>
+                            {# --- КІНЕЦЬ Елементи керування слайдером для СЛАЙДУ 2 --- #}
+
+                            {# --- ТАБЛИЦЯ ДЛЯ АГРЕГОВАНИХ ДАНИХ --- #}
+                            {% if aggregated_tasks_table_data %}
+                            <div class="card card-light mt-3">
+                                <div class="card-header">
+                                    Агреговані Показники (Таблиця)
+                                </div>
+                                <div class="card-body p-0"> {# p-0 щоб таблиця щільно прилягала до країв card-body #}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover table-sm data-table mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID Завдання</th>
+                                                    <th class="text-end">Загальні витрати, грн</th>
+                                                    <th class="text-end">Коеф. якості</th>
+                                                    <th class="text-end">Показник ефективності</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row_data in aggregated_tasks_table_data %}
+                                                <tr>
+                                                    <td>{{ row_data.task_id_display }}</td>
+                                                    <td class="text-end">{{ row_data.total_cost|floatformat:2|default_if_none:"-" }}</td>
+                                                    <td class="text-end">{{ row_data.quality|floatformat:3|default_if_none:"-" }}</td>
+                                                    <td class="text-end">{{ row_data.efficiency|floatformat:4|default_if_none:"-" }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {# --- КІНЕЦЬ ТАБЛИЦІ ДЛЯ АГРЕГОВАНИХ ДАНИХ --- #}
+
+                        {% else %}
+                            <div class="alert alert-light text-center" role="alert">
+                               {% if tasks_for_sidebar %}
+                                   Немає завершених завдань у вибраному періоді для побудови агрегованого графіка показників.
+                               {% else %}
+                                   Для поточних фільтрів немає завдань. Спочатку оберіть інший період або зміну.
+                               {% endif %}
+                            </div>
+                        {% endif %}
+                    </div> {# Кінець chart-content-area Слайд 2 #}
+                </div>{# Кінець СЛАЙД 2 #}
+
+            </div>{# --- Кінець КОНТЕЙНЕР ДЛЯ СЛАЙДЕРА ГРАФІКІВ --- #}
+
+        </div> {# Кінець правої колонки #}
+    </div> {# Кінець .row #}
+</div> {# Кінець .container #}
+
+{% endblock %} {# Кінець block content #}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOMContentLoaded: Ініціалізація scatter-графіка з HTML мітками v2...");
+    initializeScatterChartWithHtmlLabels(); 
+    initializeAggregatedTasksChart();
+});
+
+function positionTimeLabels(chartInstance, timePointsData) {
+    const timeLabelsContainer = document.getElementById('timeLabelsContainer');
+    if (!chartInstance || !timeLabelsContainer || !timePointsData || !Array.isArray(timePointsData)) {
+        // console.warn("positionTimeLabels: Недостатньо даних або timePointsData не є масивом", chartInstance, timeLabelsContainer, timePointsData);
+        return;
+    }
+    // console.log("positionTimeLabels: ChartArea:", chartInstance.chartArea, "TimePoints:", timePointsData);
+
+    const chartArea = chartInstance.chartArea;
+    if (!chartArea) {
+        // console.warn("positionTimeLabels: chartArea не визначено");
+        return;
+    }
+
+    timePointsData.forEach(tp => {
+        if (tp && tp.id && typeof tp.x_coord !== 'undefined') { // Додано перевірку tp
+            const labelElement = document.getElementById(tp.id);
+            if (labelElement) {
+                const xPixel = chartInstance.scales.x.getPixelForValue(tp.x_coord);
+                // console.log(`Мітка ${tp.id} (x_coord: ${tp.x_coord}) -> xPixel: ${xPixel}`);
+                if (xPixel !== undefined) {
+                    labelElement.style.left = `${xPixel}px`;
+                } else {
+                    // console.warn(`positionTimeLabels: xPixel не визначено для мітки ${tp.id}, x_coord: ${tp.x_coord}`);
+                }
+            } else {
+                // console.warn(`positionTimeLabels: Елемент мітки не знайдено для ID: ${tp.id}`);
+            }
+        } else {
+            // console.warn("positionTimeLabels: Некоректний об'єкт точки часу: ", tp);
+        }
+    });
+}
+
+function initializeScatterChartWithHtmlLabels() {
+    if (typeof Chart === 'undefined') {
+        console.error("ПОМИЛКА: Chart.js не визначено!");
+        return; 
+    }
+    if (typeof ChartAnnotation !== 'undefined') {
+        try {
+            if (!Chart.registry.plugins.get('annotation')) Chart.register(ChartAnnotation);
+        } catch (e) { console.error("Помилка реєстрації ChartAnnotation: ", e); }
+    } else {
+         console.warn("Плагін ChartAnnotation не завантажено, вертикальні лінії не будуть відображені.");
+    }
+
+    const canvasElement = document.getElementById('taskDetailChart');
+    const taskSpecificChartDataJson = '{{ task_specific_chart_data_json|escapejs|default_if_none:"" }}';
+    const annotationDataJson = '{{ annotation_data_json|escapejs|default_if_none:"" }}';
+    
+    const timePointsJsonString = '{{ time_points_for_js_json|escapejs|default_if_none:"[]" }}';
+    let timePointsForJs = [];
+    try {
+        if (timePointsJsonString && timePointsJsonString.trim() !== "" && timePointsJsonString.trim() !== "null") {
+            timePointsForJs = JSON.parse(timePointsJsonString);
+            if (!Array.isArray(timePointsForJs)) {
+                timePointsForJs = [];
+            }
+        }
+    } catch (e) {
+        console.error("Error parsing time_points_for_js_json: ", timePointsJsonString, e);
+        timePointsForJs = [];
+    }
+
+    // Використовуємо main_zone_names_for_js_json для mainZoneCount
+    const mainZoneNamesJson = '{{ main_zone_names_for_js_json|escapejs|default_if_none:"[]" }}';
+    let mainZoneNamesParsed = [];
+    try {
+        if (mainZoneNamesJson && mainZoneNamesJson.trim() !== "" && mainZoneNamesJson.trim() !== "null") {
+            mainZoneNamesParsed = JSON.parse(mainZoneNamesJson);
+            if (!Array.isArray(mainZoneNamesParsed)) {
+                mainZoneNamesParsed = [];
+            }
+        }
+    } catch (e) {
+        console.error("Error parsing main_zone_names_for_js_json: ", mainZoneNamesJson, e);
+        mainZoneNamesParsed = [];
+    }
+    const mainZoneCount = mainZoneNamesParsed.length > 0 ? mainZoneNamesParsed.length : 5;
+    // console.log("Main zone names parsed: ", mainZoneNamesParsed, "Count: ", mainZoneCount);
+
+    let chartAnnotations = [];
+    if (annotationDataJson && annotationDataJson.trim() !== "" && annotationDataJson.trim() !== "null") {
+        try {
+            const annotationData = JSON.parse(annotationDataJson);
+            if (annotationData.dividers_x_values && Array.isArray(annotationData.dividers_x_values) && annotationData.dividers_x_values.length > 0) {
+                annotationData.dividers_x_values.forEach(xVal => {
+                    chartAnnotations.push({ type: 'line', scaleID: 'x', value: xVal, borderColor: 'rgba(0,0,0,0.2)', borderWidth: 1, borderDash: [5,5] });
+                });
+            }
+        } catch (e) { console.error("Помилка обробки анотацій для ліній: ", e); chartAnnotations = []; }
+    }
+
+    if (!canvasElement || !taskSpecificChartDataJson || taskSpecificChartDataJson.trim() === "" || taskSpecificChartDataJson.trim() === "null") {
+        if (canvasElement && '{{ selected_task_id }}' && taskSpecificChartDataJson.trim() === "") {
+             if(canvasElement.parentElement) canvasElement.parentElement.innerHTML = '<div class="alert alert-info text-center">Для обраного завдання (ID: {{ selected_task_id }}) немає даних для відображення графіка.</div>';
+        } else if (!canvasElement && '{{ selected_task_id }}'){
+            console.warn("Елемент canvas 'taskDetailChart' не знайдено.");
+        }
+        return;
+    }
+
+    try {
+        const chartData = JSON.parse(taskSpecificChartDataJson);
+        
+        if (chartData && chartData.datasets && chartData.datasets.some(ds => ds.data && ds.data.length > 0)) {
+            if (window.taskDetailChart instanceof Chart) window.taskDetailChart.destroy();
+            
+            window.taskDetailChart = new Chart(canvasElement.getContext('2d'), {
+                type: 'scatter',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                        interaction: {
+                        mode: 'point',
+                        intersect: true
+                    },
+                    layout: { 
+                        padding: { top: 5, bottom: 5, left: 10, right: 10 }
+                    },
+                        scales: {
+                            x: {
+                            type: 'linear', 
+                            min: -0.5,     
+                            max: mainZoneCount > 0 ? mainZoneCount - 0.5 : 4.5,
+                            title: { display: false }, 
+                            ticks: { color: 'transparent', stepSize: 1 },
+                            grid: {
+                                color: function(context) {
+                                    if (Number.isInteger(context.tick.value)) return 'rgba(0, 0, 0, 0.1)';
+                                    return 'rgba(0, 0, 0, 0)'; 
+                                },
+                                borderColor: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        yTemperature: { 
+                            type: 'linear', position: 'left', 
+                            title: {display: true, text: 'Температура (°C)'},
+                            grid: { borderColor: 'rgba(0,0,0,0.05)'}
+                         },
+                        yMoisture: { 
+                            type: 'linear', position: 'right', 
+                            title: {display: true, text: 'Вологість (%)'}, 
+                            grid: {drawOnChartArea: false, borderColor: 'rgba(0,0,0,0.05)'}
+                        }
+                    },
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            display: false
+                        },
+                        tooltip: { 
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(1);
+                                    }
+                                    return label;
+                                },
+                                title: function(context) {
+                                    return null;
+                                }
+                            }
+                        }, 
+                        annotation: { 
+                            drawTime: 'afterDatasetsDraw', 
+                            annotations: chartAnnotations
+                        }
+                    },
+                    animation: {
+                        onComplete: () => {
+                            positionTimeLabels(window.taskDetailChart, timePointsForJs);
+                        }
+                    }
+                }
+            });
+            console.log("Scatter-графік створено (JSON parse для time_points виправлено v3).");
+        } else {
+             if(canvasElement.parentElement) canvasElement.parentElement.innerHTML = '<div class="alert alert-light text-center">Немає даних для графіка.</div>';
+        }
+    } catch (e) {
+        console.error("Помилка створення scatter-графіка (JSON.parse або інше): ", e);
+        if(canvasElement.parentElement) canvasElement.parentElement.innerHTML = '<div class="alert alert-danger text-center">Помилка завантаження графіка.</div>';
+    }
+}
+
+function initializeAggregatedTasksChart() {
+    if (typeof Chart === 'undefined') {
+        console.error("ПОМИЛКА: Chart.js не визначено для агрегованого графіка!");
+        return; 
+    }
+
+    const canvasElement = document.getElementById('aggregatedTasksChart');
+    const aggregatedDataJson = '{{ aggregated_tasks_chart_data_json|escapejs|default_if_none:"" }}';
+
+    if (!canvasElement || !aggregatedDataJson || aggregatedDataJson.trim() === "" || aggregatedDataJson.trim() === "null") {
+        // console.log("Немає даних або canvas для агрегованого графіка.");
+        if (canvasElement && aggregatedDataJson.trim() === "" && '{{ tasks_for_sidebar }}'){
+             // console.log("Елемент агрегованого графіка є, але дані порожні. Можливо, немає завершених завдань.");
+        } else if (!canvasElement && '{{ tasks_for_sidebar }}') {
+            console.warn("Елемент canvas 'aggregatedTasksChart' не знайдено.");
+        }
+        return;
+    }
+
+    try {
+        const chartData = JSON.parse(aggregatedDataJson);
+
+        if (chartData && chartData.labels && chartData.datasets) {
+            if (window.aggregatedTasksChart instanceof Chart) {
+                window.aggregatedTasksChart.destroy();
+            }
+            
+            window.aggregatedTasksChart = new Chart(canvasElement.getContext('2d'), {
+                // Тип графіка буде змішаний (bar та line), тому визначаємо його на рівні datasets
+                data: chartData, // Дані вже мають типи 'bar' та 'line' для datasets
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index', // Краще для кількох datasets
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Завдання' }
+                        },
+                        yCosts: { // Вісь для витрат
+                                 type: 'linear',
+                                 position: 'left',
+                            title: { display: true, text: 'Витрати (грн)' },
+                            grid: {
+                                drawOnChartArea: false, // Тільки лінії для цієї осі
+                            },
+                        },
+                        yQualityEfficiency: { // Вісь для якості та ефективності
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Коефіцієнт / Показник' },
+                            // Можна додати min/max, якщо потрібно для кращої візуалізації
+                        }
+                        },
+                        plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                        }
+                    }
+                });
+            console.log("Агрегований графік показників створено.");
+        } else {
+            // console.log("Дані для агрегованого графіка некоректні або порожні після парсингу.");
+        }
+    } catch (e) {
+        console.error("Помилка створення агрегованого графіка: ", e);
+        if(canvasElement.parentElement) canvasElement.parentElement.innerHTML = '<div class="alert alert-danger text-center">Помилка завантаження агрегованого графіка.</div>';
+    }
+}
+
+// --- Логіка для слайдера графіків --- (Початок блоку)
+const slides = document.querySelectorAll('.charts-slider-container .chart-slide');
+let currentSlide = 0;
+
+// Отримуємо посилання на ВСІ можливі елементи керування
+// Кнопки та індикатори для слайда 1
+const prevButton_s1 = document.getElementById('prevChart_s1');
+const nextButton_s1 = document.getElementById('nextChart_s1');
+const indicatorsContainer_s1 = document.getElementById('chartIndicators_s1');
+
+// Кнопки та індикатори для слайда 2
+const prevButton_s2 = document.getElementById('prevChart_s2');
+const nextButton_s2 = document.getElementById('nextChart_s2');
+const indicatorsContainer_s2 = document.getElementById('chartIndicators_s2');
+
+// Змінні для поточних активних елементів керування
+let currentPrevButton, currentNextButton, currentIndicatorsContainer;
+
+function setActiveControls(slideIndex) {
+    if (slideIndex === 0) {
+        currentPrevButton = prevButton_s1;
+        currentNextButton = nextButton_s1;
+        currentIndicatorsContainer = indicatorsContainer_s1;
+        // Приховуємо керування другого слайда, показуємо першого
+        if(prevButton_s2 && prevButton_s2.parentElement) prevButton_s2.parentElement.style.display = 'none';
+        if(prevButton_s1 && prevButton_s1.parentElement) prevButton_s1.parentElement.style.display = 'flex'; // або 'block'
+    } else if (slideIndex === 1) {
+        currentPrevButton = prevButton_s2;
+        currentNextButton = nextButton_s2;
+        currentIndicatorsContainer = indicatorsContainer_s2;
+        // Приховуємо керування першого слайда, показуємо другого
+        if(prevButton_s1 && prevButton_s1.parentElement) prevButton_s1.parentElement.style.display = 'none';
+        if(prevButton_s2 && prevButton_s2.parentElement) prevButton_s2.parentElement.style.display = 'flex'; // або 'block'
+    } else {
+        // Якщо слайдів більше, тут буде логіка для них
+        // Або приховуємо всі, якщо індекс невалідний
+        if(prevButton_s1 && prevButton_s1.parentElement) prevButton_s1.parentElement.style.display = 'none';
+        if(prevButton_s2 && prevButton_s2.parentElement) prevButton_s2.parentElement.style.display = 'none';
+    }
+}
+
+function showSlide(index) {
+    if (slides.length === 0) return;
+
+    slides.forEach((slide, i) => {
+        slide.classList.remove('active');
+        if (i === index) {
+            slide.classList.add('active');
+        }
+    });
+    currentSlide = index;
+    setActiveControls(index); // Встановлюємо активні елементи керування
+    
+    // Перевіряємо, чи існують елементи перед тим, як викликати create/update
+    if (currentIndicatorsContainer) {
+        createIndicators(currentIndicatorsContainer); // Передаємо контейнер індикаторів
+        updateIndicators(index, currentIndicatorsContainer); // і тут
+    }
+    if (currentPrevButton && currentNextButton) {
+        updateArrowButtons(); // Ця функція тепер використовує currentPrevButton/currentNextButton
+    }
+
+    // ... (решта коду showSlide: оновлення графіків) ...
+}
+
+function createIndicators(container) { // Приймає контейнер
+    if (!container) return;
+    container.innerHTML = '';
+    slides.forEach((_, i) => {
+        const dot = document.createElement('button');
+        dot.classList.add('indicator-dot');
+        dot.setAttribute('aria-label', `Перейти до графіка ${i + 1}`);
+        dot.addEventListener('click', () => showSlide(i));
+        container.appendChild(dot);
+    });
+}
+
+function updateIndicators(index, container) { // Приймає контейнер
+    if (!container) return;
+    const dots = container.querySelectorAll('.indicator-dot');
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+    });
+}
+
+function updateArrowButtons() {
+    // Використовуємо глобальні currentPrevButton, currentNextButton
+    if (!currentPrevButton || !currentNextButton || slides.length === 0) return;
+    currentPrevButton.disabled = currentSlide === 0;
+    currentNextButton.disabled = currentSlide >= slides.length - 1;
+}
+
+function next() {
+    if (currentSlide < slides.length - 1) {
+        showSlide(currentSlide + 1);
+    }
+}
+
+function prev() {
+    if (currentSlide > 0) {
+        showSlide(currentSlide - 1);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (slides.length > 0) {
+        // Прив'язуємо обробники подій до обох наборів кнопок
+        if(prevButton_s1) prevButton_s1.addEventListener('click', prev);
+        if(nextButton_s1) nextButton_s1.addEventListener('click', next);
+        if(prevButton_s2) prevButton_s2.addEventListener('click', prev);
+        if(nextButton_s2) nextButton_s2.addEventListener('click', next);
+
+        let initialSlideIndex = 0;
+        const selectedTaskId = '{{ selected_task_id|default:"" }}';
+        const aggregatedDataExists = '{{ aggregated_tasks_chart_data_json|default:"" }}';
+
+        if (!selectedTaskId && aggregatedDataExists && slides.length > 1) {
+            initialSlideIndex = 1; 
+        }
+        if (initialSlideIndex >= slides.length) {
+            initialSlideIndex = 0;
+        }
+        showSlide(initialSlideIndex); 
+    } else {
+        // Якщо немає слайдів, приховуємо всі контейнери керування
+        if(prevButton_s1 && prevButton_s1.parentElement) prevButton_s1.parentElement.style.display = 'none';
+        if(prevButton_s2 && prevButton_s2.parentElement) prevButton_s2.parentElement.style.display = 'none';
+    }
+});
+// --- Логіка для слайдера графіків --- (Кінець блоку)
+</script>
+{% endblock %}

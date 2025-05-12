@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+{% load tz %} {# Завантажуємо теги часових поясів, якщо ще не завантажено в base.html #}
+
+{% block title %}Поточні завдання{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ... Ваші стилі ... */
+    .status-badge {
+        background: #e2e8f0;
+        color: #4a5568;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        display: inline-block;
+    }
+    /* Додаткові стилі для різних статусів */
+    .status-badge.status-new { background-color: #bee3f8; color: #2a4365; }
+    .status-badge.status-in_progress { background-color: #faf089; color: #744210; }
+    /* Додайте інші статуси за потреби */
+    /* .status-badge.status-done { background-color: #9ae6b4; color: #21543d; } */
+    /* .status-badge.status-done_late { background-color: #fed7a8; color: #7b341e; } */
+    /* .status-badge.status-failed { background-color: #feb2b2; color: #822727; } */
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4"> {# Додано d-flex для заголовка і кнопки #}
+        <h1>Поточні завдання</h1>
+        {# Кнопка Назад переміщена сюди #}
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-sm"> &larr; Назад до дашборду</a>
+    </div>
+
+    {% include 'partials/messages.html' %} {# Якщо користувачу теж потрібні повідомлення #}
+
+    <div class="card card-light"> {# Використаємо світлу картку #}
+        <div class="card-body table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Назва</th>
+                        <th>Дедлайн</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td>
+                            {# Посилання на деталі, якщо є такий url - використаємо повні деталі #}
+                            {% comment %} Перевірити наявність url 'task_detail' {% endcomment %}
+                             <a href="{% url 'task_full_details' task.id %}">{{ task.title }}</a>
+                        </td>
+                        {# Використання тегу timezone для коректного відображення часу користувача #}
+                        <td>{{ task.deadline|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            {# Приклад використання стандартних класів Bootstrap для статусів #}
+                            {# Потрібно буде налаштувати відповідність кольорів #}
+                            {% with status_class="text-bg-secondary" %}
+                                {% if task.status == 'new' %}{% with status_class="text-bg-primary" %}{% endwith %}{% endif %}
+                                {% if task.status == 'in_progress' %}{% with status_class="text-bg-warning" %}{% endwith %}{% endif %}
+                                {% if task.status == 'done' %}{% with status_class="text-bg-success" %}{% endwith %}{% endif %}
+                                {% if task.status == 'done_late' %}{% with status_class="text-bg-info" %}{% endwith %}{% endif %}
+                                {% if task.status == 'failed' %}{% with status_class="text-bg-danger" %}{% endwith %}{% endif %}
+                                <span class="badge {{ status_class }} rounded-pill">{{ task.get_status_display }}</span>
+                            {% endwith %}
+                            {# Або додати класи status-{{ task.status }} і стилізувати їх в main.css #}
+                            {# <span class="badge status-badge status-{{ task.status }}">{{ task.get_status_display }}</span> #}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center p-3 text-muted">
+                            Немає активних завдань.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

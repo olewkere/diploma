@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Контроль якості - Список завдань{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Контроль якості - Список завдань</h1>
+
+    <form method="get" action="{% url 'quality_control_list' %}" class="filter-form mb-4">
+        <div class="form-group">
+            <label for="sortSelect" class="form-label">Сортувати за:</label>
+            <select name="sort" id="sortSelect" class="form-select form-select-sm">
+                <option value="-created_at" {% if current_sort == '-created_at' %}selected{% endif %}>Датою (спочатку новіші)</option>
+                <option value="created_at" {% if current_sort == 'created_at' %}selected{% endif %}>Датою (спочатку старіші)</option>
+                <option value="id" {% if current_sort == 'id' %}selected{% endif %}>ID (зростання)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="brandSelect" class="form-label">Марка:</label>
+            <select name="brand" id="brandSelect" class="form-select form-select-sm">
+                <option value="" {% if not current_brand %}selected{% endif %}>-- Всі марки --</option>
+                {% for value, display in brand_choices %}
+                    <option value="{{ value }}" {% if current_brand == value %}selected{% endif %}>{{ display }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="lineSelect" class="form-label">Лінія:</label>
+            <select name="line" id="lineSelect" class="form-select form-select-sm">
+                <option value="" {% if not current_line %}selected{% endif %}>-- Всі лінії --</option>
+                {% for value, display in line_choices %}
+                    <option value="{{ value }}" {% if current_line == value %}selected{% endif %}>{{ display }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="shiftSelect" class="form-label">Зміна:</label>
+            <select name="shift" id="shiftSelect" class="form-select form-select-sm">
+                <option value="" {% if not current_shift %}selected{% endif %}>-- Всі зміни --</option>
+                {% for value, display in shift_choices %}
+                    <option value="{{ value }}" {% if current_shift == value %}selected{% endif %}>{{ display }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary btn-sm w-100">Застосувати</button>
+        </div>
+    </form>
+
+    <div class="mb-4">
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary btn-sm">
+            &larr; Назад до панелі керування
+        </a>
+    </div>
+
+    {% if tasks %}
+        <div class="card card-light">
+            <div class="card-header">Список завдань</div>
+            <div class="card-body table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Назва завдання</th>
+                            <th>Марка</th>
+                            <th>Лінія</th>
+                            <th>Зміна</th>
+                            <th>Статус</th>
+                            <th>Створено</th>
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                            <tr>
+                                <td>{{ task.id }}</td>
+                                <td>{{ task.title }}</td>
+                                <td>{{ task.get_brand_display }}</td>
+                                <td>{{ task.get_line_display }}</td>
+                                <td>{{ task.get_shift }}</td>
+                                <td>{{ task.get_status_display }}</td>
+                                <td>{{ task.created_at|date:"y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'quality_control_detail' task.id %}" class="btn btn-sm btn-secondary" title="Вимірювання">
+                                        Вимір.
+                                    </a>
+                                    <a href="{% url 'task_full_details' task.id %}" class="btn btn-sm btn-info" title="Повні деталі">
+                                        Деталі
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            Немає доступних завдань для контролю якості, що відповідають фільтрам.
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %} 

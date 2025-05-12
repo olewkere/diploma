@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load tz %} {# Завантаження тегів часових поясів #}
+
+{% block title %}{{ task.title }} - Деталі завдання{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ... Ваші стилі ... */
+    .status-badge { /* Той самий стиль, що і в view_tasks */
+        background: #e2e8f0; color: #4a5568; padding: 0.25rem 0.75rem;
+        border-radius: 20px; font-size: 0.85rem; font-weight: 500;
+        white-space: nowrap; display: inline-block;
+    }
+    .status-badge.status-new { background-color: #bee3f8; color: #2a4365; }
+    .status-badge.status-in_progress { background-color: #faf089; color: #744210; }
+    .status-badge.status-done { background-color: #9ae6b4; color: #21543d; }
+    .status-badge.status-done_late { background-color: #fed7a8; color: #7b341e; }
+    .status-badge.status-failed { background-color: #feb2b2; color: #822727; }
+
+    .user-actions { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee; display: flex; gap: 1rem; flex-wrap: wrap; }
+    .specialist-actions { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee; display: flex; gap: 1rem; flex-wrap: wrap; }
+    .action-btn { /* Загальний стиль для кнопок дій */
+        display: inline-block; padding: 0.6rem 1.5rem; border-radius: 25px;
+        text-decoration: none; font-weight: 600; letter-spacing: 0.5px;
+        transition: all 0.3s ease; cursor: pointer; text-align: center;
+        border: 2px solid transparent;
+    }
+    .btn-start { background: #3182ce; color: #fff; border-color: #3182ce; }
+    .btn-start:hover { background: #2b6cb0; border-color: #2b6cb0; }
+    .btn-start:disabled { background: #a0aec0; color: #e2e8f0; border-color: #a0aec0; cursor: not-allowed; }
+    .btn-complete { background: #38a169; color: #fff; border-color: #38a169; }
+    .btn-complete:hover { background: #2f855a; border-color: #2f855a; }
+    .btn-edit { background: linear-gradient(45deg, #0DB8DE, #27EF9F); color: #fff; border: none; }
+    .btn-edit:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(13, 184, 222, 0.3); }
+    .btn-delete { /* Кнопка, не посилання */
+        background-color: transparent; border: 2px solid #e53e3e; color: #e53e3e;
+    }
+    .btn-delete:hover {
+        background-color: rgba(229, 62, 62, 0.1); color: #c53030;
+        border-color: #c53030; transform: translateY(-1px);
+    }
+    .info-text { color: #718096; font-style: italic; font-size: 0.9em; margin-top: 5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="task-detail-page-container">
+    <div class="content-box">
+         {% include 'partials/messages.html' %} {# Показуємо повідомлення тут #}
+
+        <h1 class="task-title">{{ task.title }}</h1>
+        <p><strong>Статус:</strong> <span class="status-badge status-{{ task.status }}">{{ task.get_status_display }}</span></p>
+        <p><strong>Опис:</strong> {{ task.description|linebreaksbr }}</p>
+        <p><strong>Марка:</strong> {{ task.get_brand_display }}</p>
+        <p><strong>Лінія:</strong> {{ task.get_line_display }}</p>
+        <p><strong>Кількість:</strong> {{ task.quantity }} кг</p>
+        <p><strong>Вологість:</strong> {{ task.moisture|floatformat:1 }}%</p> {# floatformat для одного знаку після коми #}
+        <p><strong>Дедлайн:</strong> {{ task.deadline|date:"d.m.Y H:i" }}</p>
+        <p><strong>Створено:</strong> {{ task.created_by.username }} ({{ task.created_at|date:"d.m.Y H:i" }})</p>
+
+        {# --- Дії для КОРИСТУВАЧА --- #}
+        {% if is_user %}
+        <div class="user-actions">
+            {% if task.status == 'new' %}
+                <form method="post" action="{% url 'update_task_status' task.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="start">
+                    <button type="submit" class="action-btn btn-start" {% if not can_start_task %}disabled title="Неможливо розпочати: до дедлайну менше години або завдання вже не нове"{% endif %}>
+                        Почати виконання
+                    </button>
+                </form>
+                {% if not can_start_task %}
+                    <span class="info-text">(Недоступно: менше години до дедлайну або статус змінено)</span>
+                {% endif %}
+            {% elif task.status == 'in_progress' %}
+                <form method="post" action="{% url 'update_task_status' task.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="complete">
+                    <button type="submit" class="action-btn btn-complete" {% if not can_complete_task %}disabled{% endif %}>
+                        Завершити виконання
+                    </button>
+                </form>
+            {% else %}
+                 <span class="info-text">(Немає доступних дій для поточного статусу)</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# --- Дії для СПЕЦІАЛІСТА --- #}
+        {% if is_specialist %}
+            {% if specialist_can_edit_delete %} {# Показуємо блок дій тільки якщо статус 'Нове' #}
+                <div class="specialist-actions">
+                    <a href="{% url 'edit_task' task.id %}" class="action-btn btn-edit">Редагувати</a>
+                    {# Форма для видалення #}
+                    <form method="post" action="{% url 'delete_task' task.id %}" style="display: inline;" onsubmit="return confirm('Ви впевнені, що хочете видалити завдання \'{{ task.title|escapejs }}\'?');">
+                        {% csrf_token %}
+                        <button type="submit" class="action-btn btn-delete">Видалити</button>
+                    </form>
+                </div>
+            {% else %}
+                 <div class="specialist-actions">
+                     <span class="info-text">(Редагування/видалення доступне тільки для завдань зі статусом "Нове")</span>
+                 </div>
+            {% endif %}
+        {% endif %}
+
+        {# Посилання "Назад" - веде або на керування (для спеца) або на список (для юзера) #}
+        {% if is_specialist %}
+            <a href="{% url 'manage_tasks' %}" class="back-link">Назад до керування</a>
+        {% else %}
+             <a href="{% url 'view_tasks' %}" class="back-link">Назад до списку завдань</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

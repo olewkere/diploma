@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+
+{% block title %}Повні деталі завдання: {{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <div class="mb-3">
+        <a href="{% url 'manage_tasks' %}" class="btn btn-secondary btn-sm"> &larr; Назад до Керування завданнями</a>
+        {# Можливо, додати інші кнопки дій тут, використовуючи .btn .btn-primary .btn-sm тощо #}
+    </div>
+
+    <h1 class="mb-4">Повні деталі завдання #{{ task.id }}: {{ task.title }}</h1>
+
+    {# --- Розділ: Основна інформація про завдання --- #}
+    <div class="card mb-4">
+        <div class="card-header">Основна інформація</div>
+        <div class="card-body">
+            {# Використовуємо .row та .col-md-6 для кращого компонування #}
+            <div class="row">
+                <div class="col-md-6">
+            <p><strong>Опис:</strong> {{ task.description|default:"-" }}</p>
+            <p><strong>Марка:</strong> {{ task.get_brand_display }}</p>
+            <p><strong>Лінія:</strong> {{ task.get_line_display }}</p>
+            <p><strong>Статус:</strong> {{ task.get_status_display }}</p>
+            <p><strong>Зміна створення:</strong> {{ task.get_shift }}</p>
+                </div>
+                <div class="col-md-6">
+            <p><strong>Кількість (план):</strong> {{ task.quantity }} кг</p>
+            <p><strong>Потрібна вологість:</strong> {{ task.moisture }}%</p>
+            <p><strong>Дедлайн:</strong> {{ task.deadline|date:"Y-m-d H:i" }}</p>
+                    <p><strong>Час початку:</strong> {{ task.started_at|date:"Y-m-d H:i"|default:"-" }}</p>
+                    <p><strong>Час завершення:</strong> {{ task.completed_at|date:"Y-m-d H:i"|default:"-" }}</p>
+                    <p><strong>Тривалість:</strong> {% if duration_seconds is not None %}{{ duration_seconds }} сек.{% else %} - {% endif %}</p>
+                    <p><small class="text-muted">Створено: {{ task.created_at|date:"Y-m-d H:i" }} ({{ task.created_by.username }})</small></p>
+                    <p><small class="text-muted">Оновлено: {{ task.updated_at|date:"Y-m-d H:i" }}</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Картка: Розрахунки Вартості та Якості --- #}
+    {% if task.status == 'done' or task.status == 'done_late' %}
+    <div class="card mb-4">
+        <div class="card-header">Розрахунки Вартості та Якості</div>
+        <div class="card-body">
+            <div class="row">
+                {# --- Колонка Вартості --- #}
+                <div class="col-md-6 border-end-md"> {# Додано -md для адаптивності #}
+                    <h5 class="card-title">Вартість Витрат</h5>
+                    {% if costs or total_cost > 0 %}
+                        <table class="table table-sm table-borderless small mb-3 data-table"> {# Додано data-table #}
+                            {% if costs.solution %}<tr><th>Розчин:</th><td>{{ costs.solution }} грн</td></tr>{% endif %}
+                            {% if costs.fuel %}<tr><th>Паливо:</th><td>{{ costs.fuel }} грн</td></tr>{% endif %}
+                            {% if costs.gas %}<tr><th>Газ:</th><td>{{ costs.gas }} грн</td></tr>{% endif %}
+                            {% if costs.electricity %}<tr><th>Електроенергія:</th><td>{{ costs.electricity }} грн</td></tr>{% endif %}
+                            {% if costs.air %}<tr><th>Стисле повітря:</th><td>{{ costs.air }} грн</td></tr>{% endif %}
+                            <tr class="fw-bold border-top"><th>Загальна вартість:</th><td>{{ total_cost }} грн</td></tr>
+                        </table>
+                        <p class="small text-muted mb-0">Розраховано на основі тарифів на момент завершення завдання.</p>
+                    {% else %}
+                        <div class="alert alert-warning p-2">Неможливо розрахувати вартість (відсутні тарифи або дані про споживання, що призвело до нульової вартості).</div>
+                    {% endif %}
+                </div>
+
+                {# --- Колонка Якості та Оцінки --- #}
+                <div class="col-md-6">
+                    <h5 class="card-title">Оцінка Якості</h5>
+                    {% if quality %}
+                        {% if final_measurement %}
+                        <p class="small text-muted mb-1">
+                            На основі вимірювання від: {{ final_measurement.measurement_time|date:"Y-m-d H:i" }}<br>
+                            Вологість: {{ final_measurement.measured_moisture|default:"-" }}%, 
+                            Зольність: {{ final_measurement.measured_ash|default:"-" }}%, 
+                            Твердість: {{ final_measurement.measured_hardness|default:"-" }}г
+                        </p>
+                        {% endif %}
+                        
+                        <table class="table table-sm table-borderless small mb-2 data-table"> {# Додано data-table #}
+                            <tr><th>Якість (Вологість):</th><td>{{ quality.moisture|default:"-" }}</td></tr>
+                            <tr><th>Якість (Зольність):</th><td>{{ quality.ash|default:"-" }}</td></tr>
+                            <tr><th>Якість (Твердість):</th><td>{{ quality.hardness|default:"-" }}</td></tr>
+                            <tr class="fw-bold border-top"><th>Загальний показник якості:</th><td>{{ quality.total|default:"-" }}</td></tr>
+                        </table>
+                        {% if quality.messages %}
+                            <ul class="small text-danger ps-3 mb-3">
+                            {% for msg in quality.messages %}<li>{{ msg }}</li>{% endfor %}
+                            </ul>
+                        {% endif %}
+
+                        <h5 class="card-title mt-3">Вартісна Оцінка Продукції</h5>
+                        {% if value_assessment is not None %}
+                            <p class="fs-5 fw-bold {% if value_assessment > 0 %}text-success{% else %}text-warning{% endif %}">
+                                {{ value_assessment }} грн
+                            </p>
+                            <p class="small text-muted mb-0">
+                                Розраховано як: К-ть ({{ task.quantity }} кг) * Ціна * Якість ({{ quality.total|default:"0" }})
+                            </p>
+                        {% else %}
+                            <div class="alert alert-warning p-2">Неможливо розрахувати вартісну оцінку (відсутній показник якості або ціна для марки).</div>
+                        {% endif %}
+
+                    {% else %}
+                        <div class="alert alert-warning p-2">Неможливо розрахувати якість (відсутні необхідні лабораторні вимірювання).</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {# --- Кінець Картки Розрахунків --- #}
+
+    {# --- Картка Загальне Споживання -> Перейменовано на Загальне Споживання --- #}
+    {% if duration_seconds %}
+    <div class="card mb-4">
+        <div class="card-header">Загальне Споживання Ресурсів (за ~{{ duration_seconds }} сек.)</div>
+        <div class="card-body">
+            <div class="row">
+                {# Споживання сировини #}
+                <div class="col-md-6 border-end-md">
+                    <h4>Сировина:</h4>
+                    <ul>
+                        <li>
+                            Вуглець:
+                            {% if total_carbon is not None %}
+                                {{ total_carbon|floatformat:2 }} кг
+                            {% else %}
+                                <span class="text-muted small">(немає даних про потік)</span>
+                            {% endif %}
+                        </li>
+                        <li>
+                            Розчин:
+                            {% if total_solution is not None %}
+                                {{ total_solution|floatformat:2 }} кг
+                            {% else %}
+                                <span class="text-muted small">(немає даних про потік)</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+                {# Споживання енергії #}
+        <div class="col-md-6">
+                    {% if energy_consumption %}
+                        <h4>Споживання Енергії:</h4>
+                        <ul>
+                            {% if energy_consumption.fuel %}<li>Паливо: {{ energy_consumption.fuel|floatformat:2 }} од.</li>{% endif %}
+                            {% if energy_consumption.gas %}<li>Газ: {{ energy_consumption.gas|floatformat:2 }} од.</li>{% endif %}
+                            {% if energy_consumption.electricity %}<li>Електроенергія: {{ energy_consumption.electricity|floatformat:2 }} од.</li>{% endif %}
+                            {% if energy_consumption.air %}<li>Стисле повітря: {{ energy_consumption.air|floatformat:2 }} од.</li>{% endif %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted small">Немає даних про споживання енергії.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% elif task.status == 'done' or task.status == 'done_late' %}
+    <div class="alert alert-warning" role="alert">
+        Неможливо розрахувати загальне споживання ресурсів (відсутні дані про тривалість або потоки на момент завершення).
+    </div>
+    {% endif %}
+    {# --- Кінець Картки Споживання --- #}
+
+    {# --- Розділ Лабораторії та Параметрів Процесу --- #}
+    <div class="row mb-4">
+        {# --- Картка Лабораторні вимірювання (світла) --- #}
+        <div class="col-lg-6 mb-4 mb-lg-0">
+            <div class="card card-light h-100"> {# Додано h-100 для однакової висоти #}
+                <div class="card-header">Лабораторні вимірювання</div>
+                <div class="card-body">
+                    {% if quality_norms %}
+                        <p class="small mb-2"><strong>Норми якості ({{ task.get_brand_display }}):</strong>
+                            Вологість: {{ quality_norms.min_moisture|floatformat:2 }}% - {{ quality_norms.max_moisture|floatformat:2 }}% | 
+                            Зольність: &le; {{ quality_norms.max_ash|floatformat:2 }}% | 
+                            Твердість: {{ quality_norms.min_hardness|floatformat:0 }}г - {{ quality_norms.max_hardness|floatformat:0 }}г
+                        </p>
+                        <hr class="mt-1 mb-3">
+                    {% else %}
+                        <div class="alert alert-warning p-2">Норми якості не визначені.</div>
+                    {% endif %}
+
+                    {% if measurements %}
+                        <div class="table-container">
+                            <table class="data-table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Час</th>
+                                        <th>Волог.</th>
+                                        <th>Зольн.</th>
+                                        <th>Тверд.</th>
+                                    <th>Лаборант</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in measurements %}
+                                    <tr>
+                                        <td>{{ m.measurement_time|date:"y-m-d H:i" }}</td>
+                                        <td>{{ m.measured_moisture|default:"-"|floatformat:2 }}%</td>
+                                        <td>{{ m.measured_ash|default:"-"|floatformat:2 }}%</td>
+                                        <td>{{ m.measured_hardness|default:"-"|floatformat:0 }}г</td>
+                                        <td>{{ m.measured_by.name|default:"-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info p-2">Лабораторні вимірювання для цього завдання відсутні.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# --- Картка Параметри Тех. Процесу (темна) --- #}
+        <div class="col-lg-6">
+            <div class="card h-100"> {# Додано h-100 #}
+                <div class="card-header">Параметри Тех. Процесу (Історія)</div>
+                <div class="card-body">
+                    {% if process_params_history %}
+                        <div class="accordion" id="processParamsAccordion">
+                            {% for params in process_params_history %}
+                                {# Тут можна залишити accordion з Bootstrap або зробити свій простий список #}
+                                <div class="border-bottom pb-2 mb-2">
+                                    <strong class="d-block mb-1">Запис від: {{ params.timestamp|date:"Y-m-d H:i:s" }}</strong>
+                                    <table class="table table-sm table-borderless small data-table"> {# Додано data-table #}
+                                                <tr><th>Поч. вологість:</th><td>{{ params.initial_moisture|default:"-" }}%</td></tr>
+                                                <tr><th>Поч. температура:</th><td>{{ params.initial_temp|default:"-" }}°C</td></tr>
+                                         {# ... інші параметри ... #}
+                                                <tr><th colspan="2">Зона 1:</th></tr>
+                                                <tr><td>&nbsp;&nbsp;Темп. барабану:</td><td>{{ params.zone1_drum_temp|default:"-" }}°C</td></tr>
+                                                <tr><td>&nbsp;&nbsp;Темп. пальника:</td><td>{{ params.zone1_burner_temp|default:"-" }}°C</td></tr>
+                                          {# ... скорочено для прикладу ... #}
+                                          <tr><th>Кінц. Вологість:</th><td>{{ params.final_moisture|default:"-" }}%</td></tr>
+                                            </table>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info p-2">Історія параметрів технологічного процесу відсутня.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Розділ Потоки Сировини та Енергії --- #}
+    <div class="row mb-4">
+        {# --- Картка Потоки сировини (світла) --- #}
+        <div class="col-lg-6 mb-3 mb-lg-0">
+            <div class="card card-light h-100">
+                <div class="card-header">Потоки Сировини (Історія)</div>
+                <div class="card-body table-container">
+                    {% with raw_flows=task.raw_material_flows.all %}
+                        {% if raw_flows %}
+                            <table class="data-table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Час</th>
+                                        <th>Марка</th>
+                                        <th>Вуглець (кг/с)</th>
+                                        <th>Розчин (кг/с)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for flow in raw_flows %}
+                                        <tr>
+                                            <td>{{ flow.timestamp|date:"y-m-d H:i" }}</td>
+                                            <td>{{ flow.brand|default:"-" }}</td>
+                                            <td>{{ flow.carbon_flow_rate|default:"-"|floatformat:3 }}</td>
+                                            <td>{{ flow.solution_flow_rate|default:"-"|floatformat:3 }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info p-2">Дані про потоки сировини відсутні.</div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+
+        {# --- Картка Потоки енергії (світла) --- #}
+        <div class="col-lg-6">
+            <div class="card card-light h-100">
+                <div class="card-header">Потоки Енергії (Історія)</div>
+                <div class="card-body table-container">
+                    {% with energy_flows=task.energy_flows.all %} {# TODO: Consider limiting this query if history grows large #}
+                        {% if energy_flows %}
+                            <table class="data-table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Час</th>
+                                        <th>Тип енергії</th>
+                                        <th>Витрата (од./год)</th> {# Уточнено одиницю #}
+                                        {# <th>ID Параметрів</th> #} {# Можливо, не потрібне користувачу #}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for flow in energy_flows %}
+                                        <tr>
+                                            <td>{{ flow.timestamp|date:"y-m-d H:i" }}</td>
+                                            <td>{{ flow.energy_type.name|default:"-" }}</td>
+                                            <td>{{ flow.value|default:"-"|floatformat:2 }}</td>
+                                            {# <td>{{ flow.process_params.pk }}</td> #}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info p-2">Дані про потоки енергії відсутні.</div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div> {# Кінець .container #}
+{% endblock %} 

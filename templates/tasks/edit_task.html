@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{# Динамічний заголовок сторінки: "Редагувати завдання" якщо є instance.pk, інакше "Створити завдання" #}
+{% block title %}{% if form.instance.pk %}Редагувати завдання{% else %}Створити завдання{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Повертаємо оригінальну структуру стилів, але БЕЗ .btn-submit та .btn-cancel */
+    /* --- Основні стилі сторінки --- */
+    body {
+        font-family: 'Roboto', sans-serif;
+        padding: 1rem;
+    }
+    .form-page-container { 
+        display: flex; 
+        justify-content: center;
+        align-items: flex-start; 
+        background: #1A2226;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+        margin: 2rem auto;
+        max-width: 800px; 
+        min-height: 60vh; 
+    }
+    .form-box {
+        background: #ffffff;
+        width: 100%;
+        padding: 2.5rem; 
+        border-radius: 5px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        color: #333;
+    }
+    .form-title { 
+        color: #1A2226; 
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-bottom: 2rem; 
+        border-bottom: 2px solid #0DB8DE; 
+        padding-bottom: 0.75rem;
+        text-align: left; 
+    }
+    .form-box form p { 
+        margin-bottom: 1.5rem; 
+        display: flex;
+        flex-direction: column; 
+    }
+    .form-box form label {
+        font-weight: 600;
+        color: #4a5568; 
+        margin-bottom: 0.5rem; 
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+    }
+    .form-box form input[type="text"],
+    .form-box form input[type="datetime-local"],
+    .form-box form input[type="number"],
+    .form-box form select,
+    .form-box form textarea {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #cbd5e0; 
+        border-radius: 4px;
+        background-color: #fff;
+        color: #2d3748; 
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        box-sizing: border-box; 
+    }
+    .form-box form input:focus,
+    .form-box form select:focus,
+    .form-box form textarea:focus {
+        outline: none;
+        border-color: #0DB8DE; 
+        box-shadow: 0 0 0 2px rgba(13, 184, 222, 0.2); 
+    }
+    .form-box form textarea {
+        min-height: 120px; 
+        resize: vertical; 
+    }
+    .form-box form .helptext {
+        font-size: 0.8rem;
+        color: #718096; 
+        margin-top: 0.3rem;
+        margin-left: 2px;
+    }
+    .form-box form .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0 0;
+        color: #c53030; 
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .form-box form .errorlist li {
+        margin-bottom: 0.2rem;
+    }
+    .form-box form p:has(> .errorlist) input,
+    .form-box form p:has(> .errorlist) select,
+    .form-box form p:has(> .errorlist) textarea {
+        border-color: #c53030 !important; 
+    }
+    .form-actions {
+        margin-top: 2rem; 
+        padding-top: 1.5rem;
+        border-top: 1px solid #eee; 
+        display: flex;
+        justify-content: flex-end; 
+        gap: 1rem; 
+        flex-wrap: wrap; 
+    }
+    /* Повертаємо стилі для РОЗМІРУ кнопок */
+    
+    /* НЕ повертаємо стилі для .btn-submit та .btn-cancel */
+
+    @media (max-width: 768px) {
+        .form-page-container {
+            margin: 1rem;
+            padding: 1rem;
+        }
+        .form-box {
+            padding: 1.5rem;
+        }
+        .form-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .form-box form input,
+        .form-box form select,
+        .form-box form textarea {
+            padding: 0.6rem 0.8rem;
+            font-size: 0.95rem;
+        }
+        .form-actions {
+            justify-content: center; 
+        }
+        /* Повертаємо стилі для РОЗМІРУ кнопок в медіа-запиті */
+        .btn {
+             padding: 0.6rem 1.5rem;
+             font-size: 0.85rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{# Повертаємо стару структуру HTML #}
+<div class="form-page-container">
+    <div class="form-box">
+        <h1 class="form-title">{% if form.instance.pk %}Редагування завдання{% else %}Створення завдання{% endif %}</h1>
+
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger" role="alert">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+            {{ form.as_p }}
+
+            <div class="form-actions">
+                {# Використовуємо глобальні класи для кольорів та локальні для розміру #}
+                <a href="{% url 'manage_tasks' %}" class="btn btn-outline-danger">Скасувати</a>
+                <button type="submit" class="btn btn-primary">
+                    Зберегти
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
